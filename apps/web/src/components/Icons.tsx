@@ -651,6 +651,21 @@ export const OpenCodeIcon: Icon = (props) => (
   </svg>
 );
 
+export const KiloCodeIcon: Icon = (props) => (
+  <svg {...props} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" fill="oklch(95% 0.15 108)" />
+    <g fill="#000000">
+      <path d="M23 26V24H26V19L24 17H20V19H17V24L19 26H23ZM20 20H23V23H20V20Z" />
+      <rect x="12" y="17" width="3" height="3" />
+      <path d="M26 12H23V9L20 6H17V9H20V12H17V15H26V12Z" />
+      <path d="M0 0V32H32V0H0ZM29 29H3V3H29V29Z" />
+      <path d="M15 26V23H9V17H6V23.1875L8.8125 26H15Z" />
+      <rect x="12" y="6" width="3" height="3" />
+      <path d="M9 12H12V15H15V12L12 9H9V6H6V15H9V12Z" />
+    </g>
+  </svg>
+);
+
 export const GithubCopilotIcon: Icon = ({ className, ...props }) => (
   <svg
     {...props}

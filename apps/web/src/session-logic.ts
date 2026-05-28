@@ -40,6 +40,12 @@ export const PROVIDER_OPTIONS: Array<{
     pickerSidebarBadge: "new",
   },
   {
+    value: ProviderDriverKind.make("kilocode"),
+    label: "KiloCode",
+    available: true,
+    pickerSidebarBadge: "new",
+  },
+  {
     value: ProviderDriverKind.make("cursor"),
     label: "Cursor",
     available: true,

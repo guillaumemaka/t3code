@@ -2,11 +2,46 @@ import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 
 import { ProviderInstanceId } from "./providerInstance.ts";
-import { DEFAULT_SERVER_SETTINGS, ServerSettings, ServerSettingsPatch } from "./settings.ts";
+import {
+  DEFAULT_SERVER_SETTINGS,
+  KiloCodeSettings,
+  ServerSettings,
+  ServerSettingsPatch,
+} from "./settings.ts";
 
 const decodeServerSettings = Schema.decodeUnknownSync(ServerSettings);
 const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
+const decodeKiloCodeSettings = Schema.decodeUnknownSync(KiloCodeSettings);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
+
+describe("KiloCodeSettings", () => {
+  it("decodes default KiloCode settings", () => {
+    expect(decodeKiloCodeSettings({})).toEqual({
+      enabled: true,
+      binaryPath: "kilo",
+      serverUrl: "",
+      serverPassword: "",
+      customModels: [],
+    });
+  });
+
+  it("preserves configured KiloCode settings", () => {
+    expect(
+      decodeKiloCodeSettings({
+        binaryPath: "/opt/bin/kilo",
+        serverUrl: " http://127.0.0.1:4096 ",
+        serverPassword: " secret ",
+        customModels: ["openai/gpt-5"],
+      }),
+    ).toEqual({
+      enabled: true,
+      binaryPath: "/opt/bin/kilo",
+      serverUrl: "http://127.0.0.1:4096",
+      serverPassword: "secret",
+      customModels: ["openai/gpt-5"],
+    });
+  });
+});
 
 describe("ServerSettings.providerInstances (slice-2 invariant)", () => {
   it("defaults to an empty record so legacy configs without the key still decode", () => {
@@ -19,6 +54,7 @@ describe("ServerSettings.providerInstances (slice-2 invariant)", () => {
     // Legacy `providers` struct is still hydrated with its per-driver defaults
     // so existing call sites keep working through the migration.
     expect(decoded.providers.codex.enabled).toBe(true);
+    expect(decoded.providers.kilocode.binaryPath).toBe("kilo");
   });
 
   it("decodes a multi-instance map mixing first-party and fork drivers", () => {

@@ -36,6 +36,17 @@ describe("ProviderSettingsForm helpers", () => {
     });
   });
 
+  it("derives KiloCode provider settings fields", () => {
+    const kilocode = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("kilocode")];
+    expect(kilocode).toBeDefined();
+
+    expect(deriveProviderSettingsFields(kilocode!).map((field) => field.label)).toEqual([
+      "Binary path",
+      "Server URL",
+      "Server password",
+    ]);
+  });
+
   it("preserves unknown config keys while omitting empty configurable fields", () => {
     const opencode = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("opencode")];
     expect(opencode).toBeDefined();

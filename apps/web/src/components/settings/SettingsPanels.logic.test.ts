@@ -4,11 +4,45 @@ import {
   ProviderInstanceId,
   type ProviderInstanceConfig,
 } from "@t3tools/contracts";
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+} from "@t3tools/contracts/settings";
 import { describe, expect, it } from "vitest";
 import {
   buildProviderInstanceUpdatePatch,
   formatDiagnosticsDescription,
+  normalizeTerminalFontFamily,
+  normalizeTerminalFontSize,
 } from "./SettingsPanels.logic";
+
+describe("terminal appearance normalization", () => {
+  it("parses numeric font sizes", () => {
+    expect(normalizeTerminalFontSize("14")).toBe(14);
+  });
+
+  it("clamps font sizes below the minimum", () => {
+    expect(normalizeTerminalFontSize("7")).toBe(8);
+  });
+
+  it("clamps font sizes above the maximum", () => {
+    expect(normalizeTerminalFontSize("30")).toBe(24);
+  });
+
+  it("falls back to the default for non-numeric font sizes", () => {
+    expect(normalizeTerminalFontSize("bad")).toBe(DEFAULT_TERMINAL_FONT_SIZE);
+  });
+
+  it("trims font family values", () => {
+    expect(normalizeTerminalFontFamily("  JetBrainsMono Nerd Font  ")).toBe(
+      "JetBrainsMono Nerd Font",
+    );
+  });
+
+  it("falls back to the default for empty font families", () => {
+    expect(normalizeTerminalFontFamily("  ")).toBe(DEFAULT_TERMINAL_FONT_FAMILY);
+  });
+});
 
 describe("formatDiagnosticsDescription", () => {
   it("collapses trace and metric URLs that share the same OTEL base path", () => {

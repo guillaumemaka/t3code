@@ -39,6 +39,30 @@ export const SidebarThreadPreviewCount = Schema.Int.check(
 export type SidebarThreadPreviewCount = typeof SidebarThreadPreviewCount.Type;
 export const DEFAULT_SIDEBAR_THREAD_PREVIEW_COUNT: SidebarThreadPreviewCount = 6;
 
+export const DEFAULT_TERMINAL_FONT_FAMILY =
+  '"SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
+export const MIN_TERMINAL_FONT_SIZE = 8;
+export const MAX_TERMINAL_FONT_SIZE = 24;
+export const DEFAULT_TERMINAL_FONT_SIZE = 12;
+
+export const TerminalFontFamily = TrimmedString.pipe(
+  Schema.decodeTo(
+    Schema.String,
+    SchemaTransformation.transformOrFail({
+      decode: (value) => Effect.succeed(value || DEFAULT_TERMINAL_FONT_FAMILY),
+      encode: (value) => Effect.succeed(value),
+    }),
+  ),
+  Schema.withDecodingDefault(Effect.succeed(DEFAULT_TERMINAL_FONT_FAMILY)),
+);
+export type TerminalFontFamily = typeof TerminalFontFamily.Type;
+
+export const TerminalFontSize = Schema.Number.pipe(
+  Schema.check(Schema.isFinite()),
+  Schema.withDecodingDefault(Effect.succeed(DEFAULT_TERMINAL_FONT_SIZE)),
+);
+export type TerminalFontSize = typeof TerminalFontSize.Type;
+
 export const ClientSettingsSchema = Schema.Struct({
   autoOpenPlanSidebar: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   confirmThreadArchive: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -92,6 +116,8 @@ export const ClientSettingsSchema = Schema.Struct({
   timestampFormat: TimestampFormat.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_TIMESTAMP_FORMAT)),
   ),
+  terminalFontFamily: TerminalFontFamily,
+  terminalFontSize: TerminalFontSize,
 });
 export type ClientSettings = typeof ClientSettingsSchema.Type;
 
@@ -509,5 +535,7 @@ export const ClientSettingsPatch = Schema.Struct({
   sidebarThreadSortOrder: Schema.optionalKey(SidebarThreadSortOrder),
   sidebarThreadPreviewCount: Schema.optionalKey(SidebarThreadPreviewCount),
   timestampFormat: Schema.optionalKey(TimestampFormat),
+  terminalFontFamily: Schema.optionalKey(TerminalFontFamily),
+  terminalFontSize: Schema.optionalKey(TerminalFontSize),
 });
 export type ClientSettingsPatch = typeof ClientSettingsPatch.Type;

@@ -12,7 +12,13 @@ import {
   type ScopedThreadRef,
 } from "@t3tools/contracts";
 import { scopeThreadRef } from "@t3tools/client-runtime";
-import { DEFAULT_UNIFIED_SETTINGS } from "@t3tools/contracts/settings";
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  DEFAULT_UNIFIED_SETTINGS,
+  MAX_TERMINAL_FONT_SIZE,
+  MIN_TERMINAL_FONT_SIZE,
+} from "@t3tools/contracts/settings";
 import { createModelSelection } from "@t3tools/shared/model";
 import * as Arr from "effect/Array";
 import * as Duration from "effect/Duration";
@@ -69,6 +75,8 @@ import { DRIVER_OPTIONS, getDriverOption } from "./providerDriverMeta";
 import {
   buildProviderInstanceUpdatePatch,
   formatDiagnosticsDescription,
+  normalizeTerminalFontFamily,
+  normalizeTerminalFontSize,
 } from "./SettingsPanels.logic";
 import {
   SettingResetButton,
@@ -426,6 +434,12 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.confirmThreadDelete !== DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete
         ? ["Delete confirmation"]
         : []),
+      ...(settings.terminalFontFamily !== DEFAULT_UNIFIED_SETTINGS.terminalFontFamily
+        ? ["Terminal font family"]
+        : []),
+      ...(settings.terminalFontSize !== DEFAULT_UNIFIED_SETTINGS.terminalFontSize
+        ? ["Terminal font size"]
+        : []),
       ...(isGitWritingModelDirty ? ["Git writing model"] : []),
     ],
     [
@@ -441,6 +455,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.enableAssistantStreaming,
       settings.sidebarThreadPreviewCount,
       settings.timestampFormat,
+      settings.terminalFontFamily,
+      settings.terminalFontSize,
       theme,
     ],
   );
@@ -468,6 +484,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       addProjectBaseDirectory: DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory,
       confirmThreadArchive: DEFAULT_UNIFIED_SETTINGS.confirmThreadArchive,
       confirmThreadDelete: DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete,
+      terminalFontFamily: DEFAULT_UNIFIED_SETTINGS.terminalFontFamily,
+      terminalFontSize: DEFAULT_UNIFIED_SETTINGS.terminalFontSize,
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
     });
     onRestored?.();
@@ -889,6 +907,69 @@ export function GeneralSettingsPanel() {
                 }}
               />
             </div>
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection title="Terminal">
+        <SettingsRow
+          title="Font family"
+          description="CSS font-family used by the terminal. Use an installed Nerd Font for prompt glyphs."
+          resetAction={
+            settings.terminalFontFamily !== DEFAULT_TERMINAL_FONT_FAMILY ? (
+              <SettingResetButton
+                label="terminal font family"
+                onClick={() =>
+                  updateSettings({
+                    terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <DraftInput
+              className="w-full sm:w-96"
+              value={settings.terminalFontFamily}
+              onCommit={(next) =>
+                updateSettings({ terminalFontFamily: normalizeTerminalFontFamily(next) })
+              }
+              placeholder={DEFAULT_TERMINAL_FONT_FAMILY}
+              spellCheck={false}
+              aria-label="Terminal font family"
+            />
+          }
+        />
+
+        <SettingsRow
+          title="Font size"
+          description="Terminal text size in pixels."
+          resetAction={
+            settings.terminalFontSize !== DEFAULT_TERMINAL_FONT_SIZE ? (
+              <SettingResetButton
+                label="terminal font size"
+                onClick={() =>
+                  updateSettings({
+                    terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <DraftInput
+              type="number"
+              inputMode="decimal"
+              min={MIN_TERMINAL_FONT_SIZE}
+              max={MAX_TERMINAL_FONT_SIZE}
+              step="0.5"
+              className="w-full sm:w-24"
+              value={String(settings.terminalFontSize)}
+              onCommit={(next) =>
+                updateSettings({ terminalFontSize: normalizeTerminalFontSize(next) })
+              }
+              aria-label="Terminal font size"
+            />
           }
         />
       </SettingsSection>

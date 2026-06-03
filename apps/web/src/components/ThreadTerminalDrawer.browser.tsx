@@ -2,22 +2,31 @@ import "../index.css";
 
 import { scopeThreadRef } from "@t3tools/client-runtime";
 import { ThreadId, type TerminalAttachStreamEvent } from "@t3tools/contracts";
+import { DEFAULT_CLIENT_SETTINGS, DEFAULT_TERMINAL_FONT_FAMILY } from "@t3tools/contracts/settings";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
 const {
   terminalConstructorSpy,
   terminalDisposeSpy,
+  terminalRefreshSpy,
   fitAddonFitSpy,
   fitAddonLoadSpy,
+  terminalInstances,
   environmentApiById,
   readEnvironmentApiMock,
   readLocalApiMock,
+  ensureLocalApiMock,
 } = vi.hoisted(() => ({
   terminalConstructorSpy: vi.fn(),
   terminalDisposeSpy: vi.fn(),
+  terminalRefreshSpy: vi.fn(),
   fitAddonFitSpy: vi.fn(),
   fitAddonLoadSpy: vi.fn(),
+  terminalInstances: [] as Array<{
+    options: { fontFamily?: string; fontSize?: number; theme?: unknown };
+  }>,
   environmentApiById: new Map<
     string,
     {
@@ -30,6 +39,7 @@ const {
     }
   >(),
   readEnvironmentApiMock: vi.fn((environmentId: string) => environmentApiById.get(environmentId)),
+  ensureLocalApiMock: vi.fn(),
   readLocalApiMock: vi.fn<
     () =>
       | {
@@ -53,7 +63,7 @@ vi.mock("@xterm/xterm", () => ({
   Terminal: class MockTerminal {
     cols = 80;
     rows = 24;
-    options: { theme?: unknown } = {};
+    options: { fontFamily?: string; fontSize?: number; theme?: unknown } = {};
     buffer = {
       active: {
         viewportY: 0,
@@ -62,7 +72,9 @@ vi.mock("@xterm/xterm", () => ({
       },
     };
 
-    constructor(options: unknown) {
+    constructor(options: { fontFamily?: string; fontSize?: number; theme?: unknown }) {
+      this.options = { ...options };
+      terminalInstances.push(this);
       terminalConstructorSpy(options);
     }
 
@@ -80,7 +92,9 @@ vi.mock("@xterm/xterm", () => ({
 
     focus() {}
 
-    refresh() {}
+    refresh(start?: number, end?: number) {
+      terminalRefreshSpy(start, end);
+    }
 
     scrollToBottom() {}
 
@@ -123,13 +137,29 @@ vi.mock("~/environmentApi", () => ({
 }));
 
 vi.mock("~/localApi", () => ({
-  ensureLocalApi: vi.fn(() => {
-    throw new Error("ensureLocalApi not implemented in browser test");
-  }),
+  ensureLocalApi: ensureLocalApiMock,
   readLocalApi: readLocalApiMock,
 }));
 
 import { TerminalViewport } from "./ThreadTerminalDrawer";
+import { __resetClientSettingsPersistenceForTests, useUpdateSettings } from "../hooks/useSettings";
+
+function TerminalSettingsUpdateButton() {
+  const { updateSettings } = useUpdateSettings();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        updateSettings({
+          terminalFontFamily: '"JetBrainsMono Nerd Font", monospace',
+          terminalFontSize: 16,
+        })
+      }
+    >
+      Update terminal settings
+    </button>
+  );
+}
 
 const THREAD_ID = ThreadId.make("thread-terminal-browser");
 
@@ -172,7 +202,16 @@ async function mountTerminalViewport(props: {
   drawerBackgroundColor?: string;
   drawerTextColor?: string;
   runtimeEnv?: Record<string, string>;
+  clientSettings?: Partial<typeof DEFAULT_CLIENT_SETTINGS>;
 }) {
+  window.nativeApi = {
+    persistence: {
+      getClientSettings: vi.fn().mockResolvedValue(props.clientSettings ?? null),
+      setClientSettings: vi.fn().mockResolvedValue(undefined),
+    },
+  } as never;
+  ensureLocalApiMock.mockReturnValue(window.nativeApi);
+
   const drawer = document.createElement("div");
   drawer.className = "thread-terminal-drawer";
   if (props.drawerBackgroundColor) {
@@ -189,21 +228,24 @@ async function mountTerminalViewport(props: {
   document.body.append(drawer);
 
   const screen = await render(
-    <TerminalViewport
-      threadRef={props.threadRef}
-      threadId={THREAD_ID}
-      terminalId="term-1"
-      terminalLabel="Terminal"
-      cwd="/repo/project"
-      {...(props.runtimeEnv ? { runtimeEnv: props.runtimeEnv } : {})}
-      onSessionExited={() => undefined}
-      onAddTerminalContext={() => undefined}
-      focusRequestId={0}
-      autoFocus={false}
-      resizeEpoch={0}
-      drawerHeight={320}
-      keybindings={[]}
-    />,
+    <>
+      <TerminalViewport
+        threadRef={props.threadRef}
+        threadId={THREAD_ID}
+        terminalId="term-1"
+        terminalLabel="Terminal"
+        cwd="/repo/project"
+        {...(props.runtimeEnv ? { runtimeEnv: props.runtimeEnv } : {})}
+        onSessionExited={() => undefined}
+        onAddTerminalContext={() => undefined}
+        focusRequestId={0}
+        autoFocus={false}
+        resizeEpoch={0}
+        drawerHeight={320}
+        keybindings={[]}
+      />
+      <TerminalSettingsUpdateButton />
+    </>,
     { container: host },
   );
 
@@ -213,21 +255,24 @@ async function mountTerminalViewport(props: {
       runtimeEnv?: Record<string, string>;
     }) => {
       await screen.rerender(
-        <TerminalViewport
-          threadRef={nextProps.threadRef}
-          threadId={THREAD_ID}
-          terminalId="term-1"
-          terminalLabel="Terminal"
-          cwd="/repo/project"
-          {...(nextProps.runtimeEnv ? { runtimeEnv: nextProps.runtimeEnv } : {})}
-          onSessionExited={() => undefined}
-          onAddTerminalContext={() => undefined}
-          focusRequestId={0}
-          autoFocus={false}
-          resizeEpoch={0}
-          drawerHeight={320}
-          keybindings={[]}
-        />,
+        <>
+          <TerminalViewport
+            threadRef={nextProps.threadRef}
+            threadId={THREAD_ID}
+            terminalId="term-1"
+            terminalLabel="Terminal"
+            cwd="/repo/project"
+            {...(nextProps.runtimeEnv ? { runtimeEnv: nextProps.runtimeEnv } : {})}
+            onSessionExited={() => undefined}
+            onAddTerminalContext={() => undefined}
+            focusRequestId={0}
+            autoFocus={false}
+            resizeEpoch={0}
+            drawerHeight={320}
+            keybindings={[]}
+          />
+          <TerminalSettingsUpdateButton />
+        </>,
       );
     },
     cleanup: async () => {
@@ -239,13 +284,18 @@ async function mountTerminalViewport(props: {
 
 describe("TerminalViewport", () => {
   afterEach(() => {
+    __resetClientSettingsPersistenceForTests();
     environmentApiById.clear();
     readEnvironmentApiMock.mockClear();
+    ensureLocalApiMock.mockReset();
     readLocalApiMock.mockClear();
     terminalConstructorSpy.mockClear();
     terminalDisposeSpy.mockClear();
+    terminalRefreshSpy.mockClear();
     fitAddonFitSpy.mockClear();
     fitAddonLoadSpy.mockClear();
+    terminalInstances.length = 0;
+    Reflect.deleteProperty(window, "nativeApi");
   });
 
   it("does not create a terminal when APIs are unavailable", async () => {
@@ -382,6 +432,64 @@ describe("TerminalViewport", () => {
       await vi.waitFor(() => {
         expect(environment.terminal.attach).toHaveBeenCalledTimes(1);
       });
+      expect(terminalDisposeSpy).not.toHaveBeenCalled();
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("constructs the terminal with default font settings", async () => {
+    const environment = createEnvironmentApi();
+    environmentApiById.set("environment-a", environment);
+
+    const mounted = await mountTerminalViewport({
+      threadRef: scopeThreadRef("environment-a" as never, THREAD_ID),
+    });
+
+    try {
+      await vi.waitFor(() => {
+        expect(terminalConstructorSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            fontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
+            fontSize: DEFAULT_CLIENT_SETTINGS.terminalFontSize,
+          }),
+        );
+      });
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("updates mounted terminal font options without recreating or reattaching", async () => {
+    const environment = createEnvironmentApi();
+    environmentApiById.set("environment-a", environment);
+
+    const mounted = await mountTerminalViewport({
+      threadRef: scopeThreadRef("environment-a" as never, THREAD_ID),
+    });
+
+    try {
+      await vi.waitFor(() => {
+        expect(environment.terminal.attach).toHaveBeenCalledTimes(1);
+        expect(terminalConstructorSpy).toHaveBeenCalledTimes(1);
+      });
+
+      const terminal = terminalInstances[0];
+      expect(terminal?.options.fontFamily).toBe(DEFAULT_TERMINAL_FONT_FAMILY);
+      expect(terminal?.options.fontSize).toBe(12);
+
+      terminalRefreshSpy.mockClear();
+      fitAddonFitSpy.mockClear();
+      await page.getByRole("button", { name: "Update terminal settings" }).click();
+
+      await vi.waitFor(() => {
+        expect(terminal?.options.fontFamily).toBe('"JetBrainsMono Nerd Font", monospace');
+        expect(terminal?.options.fontSize).toBe(16);
+      });
+      expect(terminalRefreshSpy).toHaveBeenCalledWith(0, 23);
+      expect(fitAddonFitSpy).toHaveBeenCalled();
+      expect(terminalConstructorSpy).toHaveBeenCalledTimes(1);
+      expect(environment.terminal.attach).toHaveBeenCalledTimes(1);
       expect(terminalDisposeSpy).not.toHaveBeenCalled();
     } finally {
       await mounted.cleanup();

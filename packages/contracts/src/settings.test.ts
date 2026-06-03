@@ -2,11 +2,56 @@ import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 
 import { ProviderInstanceId } from "./providerInstance.ts";
-import { DEFAULT_SERVER_SETTINGS, ServerSettings, ServerSettingsPatch } from "./settings.ts";
+import {
+  ClientSettingsPatch,
+  ClientSettingsSchema,
+  DEFAULT_CLIENT_SETTINGS,
+  DEFAULT_SERVER_SETTINGS,
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  ServerSettings,
+  ServerSettingsPatch,
+} from "./settings.ts";
 
 const decodeServerSettings = Schema.decodeUnknownSync(ServerSettings);
 const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
+const decodeClientSettings = Schema.decodeUnknownSync(ClientSettingsSchema);
+const decodeClientSettingsPatch = Schema.decodeUnknownSync(ClientSettingsPatch);
+
+describe("ClientSettings terminal appearance", () => {
+  it("defaults to terminal font settings", () => {
+    expect(DEFAULT_CLIENT_SETTINGS.terminalFontFamily).toBe(DEFAULT_TERMINAL_FONT_FAMILY);
+    expect(DEFAULT_CLIENT_SETTINGS.terminalFontSize).toBe(DEFAULT_TERMINAL_FONT_SIZE);
+  });
+
+  it("decodes legacy empty settings with terminal defaults", () => {
+    const decoded = decodeClientSettings({});
+    expect(decoded.terminalFontFamily).toBe(DEFAULT_TERMINAL_FONT_FAMILY);
+    expect(decoded.terminalFontSize).toBe(DEFAULT_TERMINAL_FONT_SIZE);
+  });
+
+  it("trims terminal font family", () => {
+    const decoded = decodeClientSettings({
+      terminalFontFamily: "  JetBrainsMono Nerd Font  ",
+    });
+    expect(decoded.terminalFontFamily).toBe("JetBrainsMono Nerd Font");
+  });
+
+  it("decodes empty terminal font family to default", () => {
+    const decoded = decodeClientSettings({ terminalFontFamily: "   " });
+    expect(decoded.terminalFontFamily).toBe(DEFAULT_TERMINAL_FONT_FAMILY);
+  });
+
+  it("accepts terminal font family and size patches", () => {
+    const patch = decodeClientSettingsPatch({
+      terminalFontFamily: "  Iosevka  ",
+      terminalFontSize: 14.5,
+    });
+    expect(patch.terminalFontFamily).toBe("Iosevka");
+    expect(patch.terminalFontSize).toBe(14.5);
+  });
+});
 
 describe("ServerSettings.providerInstances (slice-2 invariant)", () => {
   it("defaults to an empty record so legacy configs without the key still decode", () => {

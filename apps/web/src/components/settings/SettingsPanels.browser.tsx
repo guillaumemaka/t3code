@@ -18,6 +18,11 @@ import {
   type ServerProvider,
   type SourceControlDiscoveryResult,
 } from "@t3tools/contracts";
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  MAX_TERMINAL_FONT_SIZE,
+} from "@t3tools/contracts/settings";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import { page } from "vitest/browser";
@@ -36,10 +41,12 @@ import { __resetLocalApiForTests } from "../../localApi";
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../../rpc/atomRegistry";
 import { resetServerStateForTests, setServerConfigSnapshot } from "../../rpc/serverState";
 import { useUiStateStore } from "../../uiStateStore";
+import { __resetClientSettingsPersistenceForTests } from "../../hooks/useSettings";
 import { ConnectionsSettings } from "./ConnectionsSettings";
 import { DiagnosticsSettingsPanel } from "./DiagnosticsSettings";
-import { GeneralSettingsPanel, ProviderSettingsPanel } from "./SettingsPanels";
+import { GeneralSettingsPanel, ProviderSettingsPanel, useSettingsRestore } from "./SettingsPanels";
 import { SourceControlSettingsPanel } from "./SourceControlSettings";
+import { Button } from "../ui/button";
 
 function renderWithTestRouter(children: ReactNode) {
   const rootRoute = createRootRoute({
@@ -487,6 +494,7 @@ describe("GeneralSettingsPanel observability", () => {
   });
 
   afterEach(async () => {
+    __resetClientSettingsPersistenceForTests();
     if (mounted) {
       const teardown = mounted.cleanup ?? mounted.unmount;
       await teardown?.call(mounted).catch(() => {});
@@ -760,6 +768,169 @@ describe("GeneralSettingsPanel observability", () => {
         ),
       )
       .toBeInTheDocument();
+  });
+
+  it("renders terminal appearance settings", async () => {
+    setServerConfigSnapshot(createBaseServerConfig());
+    window.nativeApi = {
+      persistence: {
+        getClientSettings: vi.fn().mockResolvedValue(null),
+        setClientSettings: vi.fn().mockResolvedValue(undefined),
+      },
+    } as unknown as LocalApi;
+
+    mounted = await renderWithTestRouter(
+      <AppAtomRegistryProvider>
+        <GeneralSettingsPanel />
+      </AppAtomRegistryProvider>,
+    );
+
+    await expect
+      .element(page.getByRole("heading", { name: "Terminal", exact: true }))
+      .toBeInTheDocument();
+    await expect.element(page.getByLabelText("Terminal font family")).toBeInTheDocument();
+    await expect.element(page.getByLabelText("Terminal font size")).toBeInTheDocument();
+  });
+
+  it("persists edited terminal font family", async () => {
+    const setClientSettings = vi.fn().mockResolvedValue(undefined);
+    setServerConfigSnapshot(createBaseServerConfig());
+    window.nativeApi = {
+      persistence: {
+        getClientSettings: vi.fn().mockResolvedValue(null),
+        setClientSettings,
+      },
+    } as unknown as LocalApi;
+
+    mounted = await renderWithTestRouter(
+      <AppAtomRegistryProvider>
+        <GeneralSettingsPanel />
+      </AppAtomRegistryProvider>,
+    );
+
+    const input = page.getByLabelText("Terminal font family");
+    await input.fill('  "JetBrainsMono Nerd Font", monospace  ');
+    await input.element().blur();
+
+    await vi.waitFor(() => {
+      expect(setClientSettings).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          terminalFontFamily: '"JetBrainsMono Nerd Font", monospace',
+        }),
+      );
+    });
+  });
+
+  it("clamps terminal font size before persistence", async () => {
+    const setClientSettings = vi.fn().mockResolvedValue(undefined);
+    setServerConfigSnapshot(createBaseServerConfig());
+    window.nativeApi = {
+      persistence: {
+        getClientSettings: vi.fn().mockResolvedValue(null),
+        setClientSettings,
+      },
+    } as unknown as LocalApi;
+
+    mounted = await renderWithTestRouter(
+      <AppAtomRegistryProvider>
+        <GeneralSettingsPanel />
+      </AppAtomRegistryProvider>,
+    );
+
+    const input = page.getByLabelText("Terminal font size");
+    await input.fill("30");
+    await input.element().blur();
+
+    await vi.waitFor(() => {
+      expect(setClientSettings).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          terminalFontSize: MAX_TERMINAL_FONT_SIZE,
+        }),
+      );
+    });
+  });
+
+  it("resets terminal font settings to defaults", async () => {
+    const setClientSettings = vi.fn().mockResolvedValue(undefined);
+    setServerConfigSnapshot(createBaseServerConfig());
+    window.nativeApi = {
+      persistence: {
+        getClientSettings: vi.fn().mockResolvedValue({
+          terminalFontFamily: '"JetBrainsMono Nerd Font", monospace',
+          terminalFontSize: 16,
+        }),
+        setClientSettings,
+      },
+    } as unknown as LocalApi;
+
+    mounted = await renderWithTestRouter(
+      <AppAtomRegistryProvider>
+        <GeneralSettingsPanel />
+      </AppAtomRegistryProvider>,
+    );
+
+    await expect
+      .element(page.getByRole("button", { name: "Reset terminal font family" }))
+      .toBeInTheDocument();
+    await expect
+      .element(page.getByRole("button", { name: "Reset terminal font size" }))
+      .toBeInTheDocument();
+    await page.getByRole("button", { name: "Reset terminal font family" }).click();
+    await page.getByRole("button", { name: "Reset terminal font size" }).click();
+
+    await vi.waitFor(() => {
+      expect(setClientSettings).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
+          terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
+        }),
+      );
+    });
+  });
+
+  it("includes terminal settings when restoring dirty defaults", async () => {
+    const setClientSettings = vi.fn().mockResolvedValue(undefined);
+    const confirm = vi.fn().mockResolvedValue(true);
+    setServerConfigSnapshot(createBaseServerConfig());
+    window.nativeApi = {
+      persistence: {
+        getClientSettings: vi.fn().mockResolvedValue({
+          terminalFontFamily: '"JetBrainsMono Nerd Font", monospace',
+          terminalFontSize: 16,
+        }),
+        setClientSettings,
+      },
+      dialogs: { confirm },
+      server: { updateSettings: vi.fn().mockResolvedValue(undefined) },
+    } as unknown as LocalApi;
+
+    function RestoreDefaultsHarness() {
+      const { restoreDefaults } = useSettingsRestore();
+      return <Button onClick={() => void restoreDefaults()}>Restore defaults</Button>;
+    }
+
+    mounted = await renderWithTestRouter(
+      <AppAtomRegistryProvider>
+        <GeneralSettingsPanel />
+        <RestoreDefaultsHarness />
+      </AppAtomRegistryProvider>,
+    );
+
+    await expect
+      .element(page.getByRole("button", { name: "Reset terminal font family" }))
+      .toBeInTheDocument();
+    await page.getByRole("button", { name: "Restore defaults" }).click();
+
+    await vi.waitFor(() => {
+      expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Terminal font family"));
+      expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Terminal font size"));
+      expect(setClientSettings).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
+          terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
+        }),
+      );
+    });
   });
 
   it("creates and shows a pairing link when network access is enabled", async () => {

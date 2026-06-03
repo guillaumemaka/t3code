@@ -14,6 +14,10 @@ import {
   type TerminalMetadataStreamEvent,
   ThreadId,
 } from "@t3tools/contracts";
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+} from "@t3tools/contracts/settings";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ContextMenuItem } from "@t3tools/contracts";
@@ -645,6 +649,8 @@ describe("wsApi", () => {
       sidebarThreadSortOrder: "created_at" as const,
       sidebarThreadPreviewCount: 6,
       timestampFormat: "24-hour" as const,
+      terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
+      terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
     };
     const getClientSettings = vi.fn().mockResolvedValue({
       ...clientSettings,
@@ -708,6 +714,8 @@ describe("wsApi", () => {
       sidebarThreadSortOrder: "created_at" as const,
       sidebarThreadPreviewCount: 6,
       timestampFormat: "24-hour" as const,
+      terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
+      terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
     };
 
     await api.persistence.setClientSettings(clientSettings);

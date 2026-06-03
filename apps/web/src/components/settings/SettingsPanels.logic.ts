@@ -5,7 +5,33 @@ import type {
   ServerSettings,
   UnifiedSettings,
 } from "@t3tools/contracts";
-import { DEFAULT_UNIFIED_SETTINGS } from "@t3tools/contracts/settings";
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  DEFAULT_UNIFIED_SETTINGS,
+  MAX_TERMINAL_FONT_SIZE,
+  MIN_TERMINAL_FONT_SIZE,
+} from "@t3tools/contracts/settings";
+
+export function normalizeTerminalFontSize(value: unknown): number {
+  const parsedValue =
+    typeof value === "number" ? value : typeof value === "string" ? Number(value.trim()) : NaN;
+  if (!Number.isFinite(parsedValue)) {
+    return DEFAULT_TERMINAL_FONT_SIZE;
+  }
+  if (parsedValue < MIN_TERMINAL_FONT_SIZE) {
+    return MIN_TERMINAL_FONT_SIZE;
+  }
+  if (parsedValue > MAX_TERMINAL_FONT_SIZE) {
+    return MAX_TERMINAL_FONT_SIZE;
+  }
+  return parsedValue;
+}
+
+export function normalizeTerminalFontFamily(value: string): string {
+  const trimmedValue = value.trim();
+  return trimmedValue.length === 0 ? DEFAULT_TERMINAL_FONT_FAMILY : trimmedValue;
+}
 
 function collapseOtelSignalsUrl(input: {
   readonly tracesUrl: string;
